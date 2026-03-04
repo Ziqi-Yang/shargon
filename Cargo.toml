@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+default-members = ["crates/shargon-client"]
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+# --- Local Crates ---
+shargon-settings.path = "crates/shargon-settings"
+shargon-protocol.path = "crates/shargon-partocol"
+shargon-backend.path = "crates/shargon-backend"
+
+shargon-qemu.path = "crates/shargon-qemu"
+shargon-nspawn.path = "crates/shargon-nspawn"
+
+
+# --- Vendored Crates ---
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"]}
