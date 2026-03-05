@@ -1,12 +1,11 @@
 mod arguments;
 mod cli_command;
-mod grpc_service;
+mod rpc;
 
 use arguments::prelude::*;
 use cli_command::*;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli_args = arguments::Arguments::parse();

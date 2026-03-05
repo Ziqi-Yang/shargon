@@ -27,11 +27,4 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"]}
 
-tonic        = { version = "0.12", features = ["transport"] }
-prost        = "0.13"
-tonic-build  = { version = "0.12" }
-protox       = "0.7"
-tokio-stream = { version = "0.1", features = ["net"] }
-tower        = "0.4"
-http         = "1"
-hyper-util   = { version = "0.1", features = ["tokio"] }
+tonic = "0.14"

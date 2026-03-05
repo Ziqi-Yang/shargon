@@ -12,7 +12,7 @@ tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 tonic.workspace = true
-tokio-stream.workspace = true
+tokio-stream = { version = "0.1", features = ["net"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

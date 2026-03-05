@@ -2,40 +2,10 @@ syntax = "proto3";
 package shargon.v1;
 
 message PingRequest {}
-message PingResponse { string version = 1; }
-
-message CreateVmRequest {
-  string name       = 1;
-  string image_path = 2;
-  uint32 memory_mb  = 3;
-  uint32 vcpu_count = 4;
+message PingResponse {
+  string msg = 1;
 }
-message CreateVmResponse { string vm_id = 1; }
-
-message StartVmRequest  { string vm_id = 1; }
-message StartVmResponse {}
-
-message StopVmRequest   { string vm_id = 1; bool force = 2; }
-message StopVmResponse  {}
-
-message DeleteVmRequest  { string vm_id = 1; }
-message DeleteVmResponse {}
-
-message VmInfo {
-  string vm_id      = 1;
-  string name       = 2;
-  string state      = 3; // "stopped" | "running" | "paused"
-  uint32 memory_mb  = 4;
-  uint32 vcpu_count = 5;
-}
-message ListVmsRequest  {}
-message ListVmsResponse { repeated VmInfo vms = 1; }
 
 service VmService {
-  rpc Ping(PingRequest)         returns (PingResponse);
-  rpc CreateVm(CreateVmRequest) returns (CreateVmResponse);
-  rpc StartVm(StartVmRequest)   returns (StartVmResponse);
-  rpc StopVm(StopVmRequest)     returns (StopVmResponse);
-  rpc DeleteVm(DeleteVmRequest) returns (DeleteVmResponse);
-  rpc ListVms(ListVmsRequest)   returns (ListVmsResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
 }

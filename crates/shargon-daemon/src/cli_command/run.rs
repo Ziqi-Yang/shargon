@@ -5,7 +5,7 @@ use tokio::net::UnixListener;
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::Server;
 
-use crate::grpc_service::VmServiceImpl;
+use crate::rpc::VmServiceImpl;
 
 use super::CliCommand;
 
@@ -19,24 +19,23 @@ impl CliRunCommand {
 
 impl CliCommand for CliRunCommand {
     fn execute(&self) -> anyhow::Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                if Path::new(SOCKET_PATH).exists() {
-                    std::fs::remove_file(SOCKET_PATH)?;
-                }
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            if Path::new(SOCKET_PATH).exists() {
+                std::fs::remove_file(SOCKET_PATH)?;
+            }
 
-                let listener = UnixListener::bind(SOCKET_PATH)?;
-                let incoming = UnixListenerStream::new(listener);
+            let listener = UnixListener::bind(SOCKET_PATH)?;
+            let incoming = UnixListenerStream::new(listener);
 
-                tracing::info!("listening on {}", SOCKET_PATH);
+            tracing::info!("listening on {}", SOCKET_PATH);
 
-                Server::builder()
-                    .add_service(VmServiceServer::new(VmServiceImpl {}))
-                    .serve_with_incoming(incoming)
-                    .await?;
+            Server::builder()
+                .add_service(VmServiceServer::new(VmServiceImpl {}))
+                .serve_with_incoming(incoming)
+                .await?;
 
-                Ok::<(), anyhow::Error>(())
-            })
+            Ok(())
         })
     }
 }
