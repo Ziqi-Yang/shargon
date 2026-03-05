@@ -1,14 +1,6 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod vm_service {
+    tonic::include_proto!("shargon.v1");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+/// Shared Unix socket path for daemon ↔ client communication.
+pub const SOCKET_PATH: &str = "/tmp/shargon-daemon.sock";

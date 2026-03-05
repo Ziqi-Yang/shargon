@@ -11,6 +11,10 @@ shargon-version.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+tonic.workspace = true
+tokio-stream.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [build-dependencies]
 shargon-version.workspace = true

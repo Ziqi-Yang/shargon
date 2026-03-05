@@ -1,11 +1,14 @@
 mod arguments;
 mod cli_command;
+mod grpc_service;
 
 use arguments::prelude::*;
 use cli_command::*;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     let cli_args = arguments::Arguments::parse();
 
     let cmd: Box<dyn cli_command::CliCommand> = match cli_args.command {

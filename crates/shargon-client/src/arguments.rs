@@ -12,6 +12,7 @@ pub struct Arguments {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    Ping,
     Run,
     Version,
 }
