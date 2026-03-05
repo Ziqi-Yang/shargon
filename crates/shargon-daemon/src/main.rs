@@ -1,25 +1,19 @@
-use clap::{Parser, Subcommand};
+mod arguments;
+mod cli_command;
 
-#[derive(Parser, Debug)]
-struct Arguments {
-    #[command(subcommand)]
-    command: Option<Command>,
-}
+use arguments::prelude::*;
+use cli_command::*;
 
-#[derive(Subcommand, Debug)]
-enum Command {
-    Version,
-}
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let cli_args = arguments::Arguments::parse();
 
-fn main() {
-    let args = Arguments::parse();
+    let cmd: Box<dyn cli_command::CliCommand> = match cli_args.command {
+        arguments::Command::Run => Box::new(CliRunCommand::new()),
+        arguments::Command::Version => Box::new(CliVersionCommand::new()),
+    };
 
-    match args.command {
-        Some(Command::Version) => {
-            println!("{}", shargon_version::current_version_line!());
-        }
-        None => {
-            println!("daemon");
-        }
-    }
+    cmd.execute()?;
+
+    Ok(())
 }

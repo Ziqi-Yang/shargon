@@ -258,8 +258,12 @@ dependencies = [
 name = "shargon-daemon"
 version = "26.3.5"
 dependencies = [
+ "anyhow",
  "clap",
+ "shargon-protocol",
+ "shargon-settings",
  "shargon-version",
+ "tokio",
 ]
 
 [[package]]

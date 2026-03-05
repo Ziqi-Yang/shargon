@@ -1,6 +1,6 @@
 # Shadow Dargon
 
-Shargon(Shadow Dargon) is a tool designed to instantly spawn lightweight, completely isolated virtual machines for end-to-end (E2E) testing.
+Shargon(Shadow Dargon) is a tool designed to instantly spawn lightweight, isolated virtual machines for end-to-end (E2E) testing.
 
 WIP
 

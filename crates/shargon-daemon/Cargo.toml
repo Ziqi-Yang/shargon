@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+shargon-settings.workspace = true
+shargon-protocol.workspace = true
 shargon-version.workspace = true
+
+tokio.workspace = true
+anyhow.workspace = true
 clap.workspace = true
 
 [build-dependencies]
