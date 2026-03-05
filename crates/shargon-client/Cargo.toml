@@ -1,12 +1,16 @@
 [package]
 name = "shargon-client"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
 shargon-settings.workspace = true
 shargon-protocol.workspace = true
+shargon-version.workspace = true
 
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+
+[build-dependencies]
+shargon-version.workspace = true

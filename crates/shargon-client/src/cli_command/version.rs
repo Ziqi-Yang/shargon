@@ -10,7 +10,7 @@ impl CliVersionCommand {
 
 impl CliCommand for CliVersionCommand {
     fn execute(&self) -> anyhow::Result<()> {
-        println!("version");
+        println!("{}", shargon_version::current_version_line!());
         Ok(())
     }
 }

@@ -5,12 +5,14 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
+version = "26.3.5"
 
 [workspace.dependencies]
 # --- Local Crates ---
 shargon-settings.path = "crates/shargon-settings"
 shargon-protocol.path = "crates/shargon-protocol"
 shargon-backend.path = "crates/shargon-backend"
+shargon-version.path = "crates/shargon-version"
 
 shargon-qemu.path = "crates/shargon-qemu"
 shargon-nspawn.path = "crates/shargon-nspawn"

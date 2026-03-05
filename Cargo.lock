@@ -244,18 +244,23 @@ version = "0.1.0"
 
 [[package]]
 name = "shargon-client"
-version = "0.1.0"
+version = "26.3.5"
 dependencies = [
  "anyhow",
  "clap",
  "shargon-protocol",
  "shargon-settings",
+ "shargon-version",
  "tokio",
 ]
 
 [[package]]
 name = "shargon-daemon"
-version = "0.1.0"
+version = "26.3.5"
+dependencies = [
+ "clap",
+ "shargon-version",
+]
 
 [[package]]
 name = "shargon-nspawn"
@@ -272,6 +277,10 @@ version = "0.1.0"
 [[package]]
 name = "shargon-settings"
 version = "0.1.0"
+
+[[package]]
+name = "shargon-version"
+version = "26.3.5"
 
 [[package]]
 name = "signal-hook-registry"

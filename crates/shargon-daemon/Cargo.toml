@@ -1,6 +1,11 @@
 [package]
 name = "shargon-daemon"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
+shargon-version.workspace = true
+clap.workspace = true
+
+[build-dependencies]
+shargon-version.workspace = true

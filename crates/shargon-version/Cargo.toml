@@ -1,0 +1,4 @@
+[package]
+name = "shargon-version"
+version.workspace = true
+edition.workspace = true
