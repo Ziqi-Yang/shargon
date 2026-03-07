@@ -1,37 +1,24 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is a Rust workspace for Shargon (Shadow Dargon), with crates under `crates/` and shared workspace settings in `Cargo.toml`.
-
-- `crates/shargon-client`: CLI entrypoint (`src/main.rs`) and command traits (`src/cli_command/`).
-- `crates/shargon-daemon`: daemon/service binary.
-- `crates/shargon-backend`, `shargon-protocol`, `shargon-settings`, `shargon-qemu`, `shargon-nspawn`: library crates for core domains and backend integrations.
-- `docs/`: design and infrastructure notes (for example `docs/nix-qemu.md`).
+`shargon` is a Rust workspace rooted at [`Cargo.toml`](/home/meowking/proj/personal/shargon/Cargo.toml). Code lives under [`crates/`](/home/meowking/proj/personal/shargon/crates): `shargon-client` is the default CLI, `shargon-daemon` hosts the long-running service, `shargon-protocol` contains the gRPC/protobuf layer, and shared or backend-specific logic sits in crates such as `shargon-settings`, `shargon-version`, `shargon-qemu`, and `shargon-nspawn`. Protocol definitions live in [`crates/shargon-protocol/proto/`](/home/meowking/proj/personal/shargon/crates/shargon-protocol/proto), and repo docs live in [`docs/`](/home/meowking/proj/personal/shargon/docs).
 
 ## Build, Test, and Development Commands
-Use Cargo from the repository root.
+Use Nix when you need the pinned toolchain support:
 
-- `cargo build`: build the default workspace member (`shargon-client`).
-- `cargo build --workspace`: build all crates.
-- `cargo test --workspace`: run all unit tests across crates.
-- `cargo run -p shargon-client`: run the CLI locally.
-- `cargo run -p shargon-daemon`: run the daemon locally.
-- `cargo fmt --all` and `cargo clippy --workspace --all-targets -- -D warnings`: format and lint before opening a PR.
+- `nix develop` opens a shell with `protobuf` available for proto builds.
+- `cargo build --workspace` builds all crates.
+- `cargo run -p shargon-client -- version` runs the client CLI.
+- `cargo run -p shargon-daemon -- run` starts the daemon entrypoint.
+- `cargo test --workspace` runs all unit tests.
+- `cargo fmt --all` formats the workspace.
+- `cargo clippy --workspace --all-targets` checks for common Rust issues.
 
 ## Coding Style & Naming Conventions
-- Follow Rust defaults: 4-space indentation, `snake_case` for functions/modules, `PascalCase` for types/traits, `SCREAMING_SNAKE_CASE` for constants.
-- Keep crate responsibilities narrow; put reusable logic in `lib.rs` and binary startup/orchestration in `main.rs`.
-- Prefer small modules and explicit trait boundaries (for example the `CliCommand` trait pattern).
+Follow standard Rust formatting via `rustfmt` with 4-space indentation. Keep crate names kebab-case (`shargon-client`), modules and functions snake_case, and types/traits PascalCase. Prefer small modules under `src/` and keep CLI command implementations grouped under `cli_command/`. When editing protobuf-backed code, update the `.proto` file first and let Cargo rebuild generated bindings through `build.rs`.
 
 ## Testing Guidelines
-- Place unit tests inline with code using `#[cfg(test)] mod tests`.
-- Name tests by behavior (for example `creates_vm_snapshot`, `rejects_invalid_config`).
-- Run `cargo test --workspace` before commit; add tests for every bug fix or new public behavior.
+Current tests are lightweight inline unit tests in crate `src/lib.rs` files. For new logic, add focused unit tests next to the code with `#[cfg(test)] mod tests`; add integration tests under `crates/<crate>/tests/` when behavior crosses module boundaries. Name tests after behavior, for example `returns_version_from_workspace_crate`. Run `cargo test --workspace` before opening a PR.
 
 ## Commit & Pull Request Guidelines
-use conventional commits style, for example `feat(client): add command dispatcher`.
-
-- Use concise, imperative commit subjects, ideally scoped
-- Keep commits focused; avoid mixing refactors with behavior changes.
-- PRs should include: purpose, key changes, test evidence (`cargo test`/`clippy` output), and linked issues.
-- For user-facing CLI changes, include sample command/output in the PR description.
+Recent history follows a Conventional Commit style such as `feat(protocol): ...`, `feat: ...`, `refactor: ...`, and `doc: ...`. Use imperative subjects and add a scope when the change is isolated to one crate. PRs should include a short summary, list affected crates, note any protocol or socket-path changes, and include the verification commands you ran. Link the issue when one exists.
