@@ -1,13 +1,7 @@
-use hyper_util::rt::TokioIo;
-use shargon_protocol::{
-    SOCKET_PATH,
-    vm_service::{PingRequest, vm_service_client::VmServiceClient},
-};
-use tokio::net::UnixStream;
-use tonic::transport::{Endpoint, Uri};
-use tower::service_fn;
+use shargon_protocol::vm_service::PingRequest;
 
 use super::CliCommand;
+use crate::daemon::connect_or_start_vm_service;
 
 pub struct CliPingCommand {}
 
@@ -22,22 +16,9 @@ impl CliCommand for CliPingCommand {
         let rt = tokio::runtime::Runtime::new()?;
 
         rt.block_on(async {
-            let channel = Endpoint::try_from("http://[::]:50051")?
-                .connect_with_connector(service_fn(|_: Uri| async {
-                    Ok::<_, std::io::Error>(TokioIo::new(UnixStream::connect(SOCKET_PATH).await?))
-                }))
-                .await;
-
-            match channel {
-                Ok(channel) => {
-                    let mut client = VmServiceClient::new(channel);
-                    let response = client.ping(PingRequest {}).await?;
-                    println!("{}", response.into_inner().msg);
-                }
-                Err(_) => {
-                    eprintln!("daemon not running — start it with: shargon-daemon run");
-                }
-            }
+            let mut client = connect_or_start_vm_service().await?;
+            let response = client.ping(PingRequest {}).await?;
+            println!("{}", response.into_inner().msg);
 
             Ok::<(), anyhow::Error>(())
         })

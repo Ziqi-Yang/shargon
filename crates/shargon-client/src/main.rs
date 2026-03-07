@@ -1,5 +1,6 @@
 mod arguments;
 mod cli_command;
+mod daemon;
 
 use arguments::prelude::*;
 use cli_command::*;
