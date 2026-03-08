@@ -901,6 +901,10 @@ dependencies = [
 [[package]]
 name = "shargon-backend"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+]
 
 [[package]]
 name = "shargon-client"
@@ -928,7 +932,10 @@ version = "26.3.5"
 dependencies = [
  "anyhow",
  "clap",
+ "shargon-backend",
+ "shargon-nspawn",
  "shargon-protocol",
+ "shargon-qemu",
  "shargon-settings",
  "shargon-version",
  "tempfile",
@@ -942,6 +949,15 @@ dependencies = [
 [[package]]
 name = "shargon-nspawn"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "shargon-backend",
+ "shargon-settings",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "shargon-protocol"
@@ -956,6 +972,11 @@ dependencies = [
 [[package]]
 name = "shargon-qemu"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "shargon-backend",
+]
 
 [[package]]
 name = "shargon-settings"

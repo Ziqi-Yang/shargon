@@ -1,12 +1,15 @@
 use std::{
     io::ErrorKind,
     path::Path,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use anyhow::{Context, bail};
-use shargon_protocol::vm_service::vm_service_server::VmServiceServer;
-use shargon_settings::{DaemonSettings, ShargonSettings};
+use shargon_backend::VmBackend;
+use shargon_nspawn::NspawnBackend;
+use shargon_qemu::QemuBackend;
+use shargon_settings::{BackendKind, DaemonSettings, ShargonSettings};
 use tokio::{
     net::{UnixListener, UnixStream},
     time::sleep,
@@ -28,22 +31,36 @@ impl CliRunCommand {
 
 impl CliCommand for CliRunCommand {
     fn execute(&self) -> anyhow::Result<()> {
-        let config = ShargonSettings::load()?.daemon;
+        let settings = ShargonSettings::load()?;
         let rt = tokio::runtime::Runtime::new()?;
         rt.block_on(async {
-            let listener = create_daemon_listener(&config).await?;
+            let listener = create_daemon_listener(&settings.daemon).await?;
             let incoming = UnixListenerStream::new(listener);
+            let backend = build_backend(&settings).await?;
 
-            tracing::info!("listening on {}", config.socket_path.display());
+            tracing::info!("listening on {}", settings.daemon.socket_path.display());
 
             Server::builder()
-                .add_service(VmServiceServer::new(VmServiceImpl {}))
+                .add_service(VmServiceImpl::new(backend).into_server())
                 .serve_with_incoming(incoming)
                 .await?;
 
             Ok(())
         })
     }
+}
+
+async fn build_backend(settings: &ShargonSettings) -> anyhow::Result<Arc<dyn VmBackend>> {
+    let backend: Arc<dyn VmBackend> = match settings.backend.default {
+        BackendKind::Nspawn => Arc::new(NspawnBackend::new(settings.backend.nspawn.clone()).await?),
+        BackendKind::Qemu => Arc::new(QemuBackend::new()),
+    };
+
+    backend
+        .reconcile_pool(settings.backend.default_parallel_vms)
+        .await?;
+
+    Ok(backend)
 }
 
 async fn create_daemon_listener(config: &DaemonSettings) -> anyhow::Result<UnixListener> {

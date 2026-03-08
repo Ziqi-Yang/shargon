@@ -13,11 +13,13 @@ const CONFIG_ENV_VAR: &str = "SHARGON_CONFIG";
 const CONFIG_DIR_NAME: &str = "shargon";
 const CONFIG_FILE_NAME: &str = "shargon.toml";
 const DEFAULT_SOCKET_PATH: &str = "/tmp/shargon-daemon.sock";
+const DEFAULT_MACHINE_PREFIX: &str = "shargon";
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ShargonSettings {
     pub daemon: DaemonSettings,
+    pub backend: BackendSettings,
 }
 
 impl ShargonSettings {
@@ -50,7 +52,8 @@ impl ShargonSettings {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
-        self.daemon.validate().context("invalid daemon settings")
+        self.daemon.validate().context("invalid daemon settings")?;
+        self.backend.validate().context("invalid backend settings")
     }
 
     fn load_with_sources(
@@ -121,6 +124,106 @@ impl DaemonSettings {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct BackendSettings {
+    pub default: BackendKind,
+    pub default_parallel_vms: usize,
+    pub nspawn: NspawnSettings,
+}
+
+impl Default for BackendSettings {
+    fn default() -> Self {
+        Self {
+            default: BackendKind::Nspawn,
+            default_parallel_vms: 1,
+            nspawn: NspawnSettings::default(),
+        }
+    }
+}
+
+impl BackendSettings {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.default_parallel_vms == 0 {
+            bail!("default_parallel_vms must be greater than zero");
+        }
+
+        match self.default {
+            BackendKind::Nspawn => self.nspawn.validate(),
+            BackendKind::Qemu => Ok(()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum BackendKind {
+    Nspawn,
+    Qemu,
+}
+
+impl Default for BackendKind {
+    fn default() -> Self {
+        Self::Nspawn
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct NspawnSettings {
+    pub root_directory: Option<PathBuf>,
+    pub machine_prefix: String,
+    #[serde(with = "humantime_serde")]
+    pub boot_timeout: Duration,
+}
+
+impl Default for NspawnSettings {
+    fn default() -> Self {
+        Self {
+            root_directory: None,
+            machine_prefix: DEFAULT_MACHINE_PREFIX.to_string(),
+            boot_timeout: Duration::from_secs(30),
+        }
+    }
+}
+
+impl NspawnSettings {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.machine_prefix.is_empty() {
+            bail!("machine_prefix must not be empty");
+        }
+
+        if self.boot_timeout.is_zero() {
+            bail!("boot_timeout must be greater than zero");
+        }
+
+        if let Some(root_directory) = &self.root_directory {
+            if !root_directory.is_absolute() {
+                bail!(
+                    "root_directory must be absolute, got {}",
+                    root_directory.display()
+                );
+            }
+
+            if !root_directory.exists() {
+                bail!(
+                    "root_directory does not exist: {}",
+                    root_directory.display()
+                );
+            }
+
+            if !root_directory.is_dir() {
+                bail!(
+                    "root_directory must be a directory, got {}",
+                    root_directory.display()
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
 fn resolve_default_path(
     xdg_config_home: Option<&OsStr>,
     home: Option<&OsStr>,
@@ -150,7 +253,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_daemon_settings_match_current_behavior() {
+    fn default_settings_match_expected_values() {
         let settings = ShargonSettings::default();
 
         assert_eq!(
@@ -159,21 +262,40 @@ mod tests {
         );
         assert_eq!(settings.daemon.readiness_timeout, Duration::from_secs(3));
         assert_eq!(settings.daemon.retry_interval, Duration::from_millis(50));
+        assert_eq!(settings.backend.default, BackendKind::Nspawn);
+        assert_eq!(settings.backend.default_parallel_vms, 1);
+        assert_eq!(settings.backend.nspawn.root_directory, None);
+        assert_eq!(settings.backend.nspawn.machine_prefix, DEFAULT_MACHINE_PREFIX);
+        assert_eq!(settings.backend.nspawn.boot_timeout, Duration::from_secs(30));
     }
 
     #[test]
     fn parses_valid_toml() -> anyhow::Result<()> {
         let temp_dir = tempdir()?;
+        let root_directory = temp_dir.path().join("rootfs");
+        fs::create_dir(&root_directory)?;
         let config_path = temp_dir.path().join("shargon.toml");
 
         fs::write(
             &config_path,
-            r#"
+            format!(
+                r#"
 [daemon]
 socket_path = "/tmp/custom-shargon.sock"
 readiness_timeout = "5s"
 retry_interval = "125ms"
+
+[backend]
+default = "nspawn"
+default_parallel_vms = 4
+
+[backend.nspawn]
+root_directory = "{}"
+machine_prefix = "ci"
+boot_timeout = "45s"
 "#,
+                root_directory.display()
+            ),
         )?;
 
         let settings = ShargonSettings::load_from_path(&config_path)?;
@@ -184,6 +306,18 @@ retry_interval = "125ms"
                 socket_path: PathBuf::from("/tmp/custom-shargon.sock"),
                 readiness_timeout: Duration::from_secs(5),
                 retry_interval: Duration::from_millis(125),
+            }
+        );
+        assert_eq!(
+            settings.backend,
+            BackendSettings {
+                default: BackendKind::Nspawn,
+                default_parallel_vms: 4,
+                nspawn: NspawnSettings {
+                    root_directory: Some(root_directory),
+                    machine_prefix: "ci".to_string(),
+                    boot_timeout: Duration::from_secs(45),
+                },
             }
         );
         Ok(())
@@ -253,6 +387,7 @@ retry_interval = "125ms"
                 socket_path: PathBuf::from("relative.sock"),
                 ..DaemonSettings::default()
             },
+            ..test_settings()
         }
         .validate()
         .unwrap_err();
@@ -267,6 +402,7 @@ retry_interval = "125ms"
                 readiness_timeout: Duration::ZERO,
                 ..DaemonSettings::default()
             },
+            ..test_settings()
         }
         .validate()
         .unwrap_err();
@@ -278,6 +414,7 @@ retry_interval = "125ms"
                 retry_interval: Duration::ZERO,
                 ..DaemonSettings::default()
             },
+            ..test_settings()
         }
         .validate()
         .unwrap_err();
@@ -286,23 +423,101 @@ retry_interval = "125ms"
     }
 
     #[test]
+    fn validate_rejects_zero_parallelism() {
+        let err = ShargonSettings {
+            backend: BackendSettings {
+                default_parallel_vms: 0,
+                ..test_settings().backend
+            },
+            ..test_settings()
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(format!("{err:#}").contains("default_parallel_vms"));
+    }
+
+    #[test]
+    fn validate_rejects_relative_root_directory() {
+        let err = ShargonSettings {
+            backend: BackendSettings {
+                nspawn: NspawnSettings {
+                    root_directory: Some(PathBuf::from("relative")),
+                    ..test_settings().backend.nspawn
+                },
+                ..test_settings().backend
+            },
+            ..test_settings()
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(format!("{err:#}").contains("root_directory must be absolute"));
+    }
+
+    #[test]
+    fn validate_rejects_missing_root_directory() {
+        let temp_dir = tempdir().expect("temp dir");
+        let missing_root = temp_dir.path().join("missing");
+
+        let err = ShargonSettings {
+            backend: BackendSettings {
+                nspawn: NspawnSettings {
+                    root_directory: Some(missing_root.clone()),
+                    ..test_settings().backend.nspawn
+                },
+                ..test_settings().backend
+            },
+            ..test_settings()
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(format!("{err:#}").contains(&missing_root.display().to_string()));
+    }
+
+    #[test]
     fn unknown_fields_are_rejected() -> anyhow::Result<()> {
         let temp_dir = tempdir()?;
+        let root_directory = temp_dir.path().join("rootfs");
+        fs::create_dir(&root_directory)?;
         let config_path = temp_dir.path().join("shargon.toml");
 
         fs::write(
             &config_path,
-            r#"
-[daemon]
-socket_path = "/tmp/custom-shargon.sock"
-readiness_timeout = "5s"
-retry_interval = "125ms"
+            format!(
+                r#"
+[backend]
+default_parallel_vms = 2
 unknown = "value"
+
+[backend.nspawn]
+root_directory = "{}"
 "#,
+                root_directory.display()
+            ),
         )?;
 
         let err = ShargonSettings::load_from_path(&config_path).unwrap_err();
         assert!(format!("{err:#}").contains("unknown field"));
         Ok(())
+    }
+
+    fn test_settings() -> ShargonSettings {
+        let root_directory = tempdir().expect("temp dir");
+        let root_directory = root_directory.keep();
+
+        ShargonSettings {
+            daemon: DaemonSettings::default(),
+            backend: BackendSettings {
+                default: BackendKind::Nspawn,
+                default_parallel_vms: 1,
+                nspawn: NspawnSettings {
+                    root_directory: Some(root_directory),
+                    machine_prefix: DEFAULT_MACHINE_PREFIX.to_string(),
+                    boot_timeout: Duration::from_secs(30),
+                },
+            },
+        }
     }
 }

@@ -13,6 +13,17 @@ pub struct Arguments {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Ping,
-    Run,
+    Run {
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        argv: Vec<String>,
+    },
+    Tasks,
+    TaskStatus {
+        task_id: String,
+    },
+    Cancel {
+        task_id: String,
+    },
+    Machines,
     Version,
 }

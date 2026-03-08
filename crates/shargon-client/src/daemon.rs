@@ -26,6 +26,18 @@ enum ProbeDaemonError {
     Other(anyhow::Error),
 }
 
+pub async fn connect_to_running_vm_service() -> anyhow::Result<VmServiceClient<Channel>> {
+    let config = ShargonSettings::load()?.daemon;
+
+    match try_connect_vm_service(&config.socket_path).await {
+        Ok(client) => Ok(client),
+        Err(ProbeDaemonError::Unavailable(err)) => bail!(
+            "a running privileged shargon-daemon is required for this command. Start it manually, for example with: sudo shargon-daemon run. Last error: {err:#}"
+        ),
+        Err(ProbeDaemonError::Other(err)) => Err(err),
+    }
+}
+
 pub async fn connect_or_start_vm_service() -> anyhow::Result<VmServiceClient<Channel>> {
     let daemon_path = resolve_daemon_executable()?;
     let config = ShargonSettings::load()?.daemon;
@@ -199,7 +211,9 @@ mod tests {
     };
 
     use shargon_protocol::vm_service::{
-        PingRequest, PingResponse,
+        CancelTaskRequest, CancelTaskResponse, GetTaskRequest, GetTaskResponse,
+        ListMachinesRequest, ListMachinesResponse, ListTasksRequest, ListTasksResponse,
+        PingRequest, PingResponse, StartTaskRequest, StartTaskResponse,
         vm_service_server::{VmService, VmServiceServer},
     };
     use tempfile::tempdir;
@@ -221,6 +235,41 @@ mod tests {
             Ok(Response::new(PingResponse {
                 msg: "pong".to_string(),
             }))
+        }
+
+        async fn start_task(
+            &self,
+            _request: Request<StartTaskRequest>,
+        ) -> Result<Response<StartTaskResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("not used in tests"))
+        }
+
+        async fn get_task(
+            &self,
+            _request: Request<GetTaskRequest>,
+        ) -> Result<Response<GetTaskResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("not used in tests"))
+        }
+
+        async fn list_tasks(
+            &self,
+            _request: Request<ListTasksRequest>,
+        ) -> Result<Response<ListTasksResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("not used in tests"))
+        }
+
+        async fn cancel_task(
+            &self,
+            _request: Request<CancelTaskRequest>,
+        ) -> Result<Response<CancelTaskResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("not used in tests"))
+        }
+
+        async fn list_machines(
+            &self,
+            _request: Request<ListMachinesRequest>,
+        ) -> Result<Response<ListMachinesResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("not used in tests"))
         }
     }
 

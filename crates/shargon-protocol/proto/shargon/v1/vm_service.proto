@@ -6,6 +6,114 @@ message PingResponse {
   string msg = 1;
 }
 
+enum BackendKind {
+  BACKEND_UNSPECIFIED = 0;
+  BACKEND_NSPAWN = 1;
+  BACKEND_QEMU = 2;
+}
+
+enum DiagnosticSeverity {
+  DIAGNOSTIC_UNSPECIFIED = 0;
+  DIAGNOSTIC_INFO = 1;
+  DIAGNOSTIC_WARNING = 2;
+  DIAGNOSTIC_ERROR = 3;
+}
+
+enum MachineState {
+  MACHINE_UNSPECIFIED = 0;
+  MACHINE_PROVISIONING = 1;
+  MACHINE_IDLE = 2;
+  MACHINE_BUSY = 3;
+  MACHINE_FAILED = 4;
+  MACHINE_STOPPING = 5;
+  MACHINE_STOPPED = 6;
+}
+
+enum TaskState {
+  TASK_UNSPECIFIED = 0;
+  TASK_QUEUED = 1;
+  TASK_RUNNING = 2;
+  TASK_SUCCEEDED = 3;
+  TASK_FAILED = 4;
+  TASK_CANCELLED = 5;
+}
+
+message Diagnostic {
+  string code = 1;
+  DiagnosticSeverity severity = 2;
+  string message = 3;
+}
+
+message EnvVar {
+  string name = 1;
+  string value = 2;
+}
+
+message TaskSpec {
+  repeated string argv = 1;
+  repeated EnvVar env = 2;
+  optional string working_directory = 3;
+}
+
+message TaskStatus {
+  string id = 1;
+  BackendKind backend = 2;
+  TaskState state = 3;
+  optional string machine_id = 4;
+  optional int32 exit_code = 5;
+  repeated Diagnostic diagnostics = 6;
+}
+
+message MachineStatus {
+  string id = 1;
+  BackendKind backend = 2;
+  string name = 3;
+  MachineState state = 4;
+  optional string current_task_id = 5;
+  repeated Diagnostic diagnostics = 6;
+}
+
+message StartTaskRequest {
+  TaskSpec spec = 1;
+}
+
+message StartTaskResponse {
+  TaskStatus task = 1;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message GetTaskResponse {
+  TaskStatus task = 1;
+}
+
+message ListTasksRequest {}
+
+message ListTasksResponse {
+  repeated TaskStatus tasks = 1;
+}
+
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+message CancelTaskResponse {
+  TaskStatus task = 1;
+}
+
+message ListMachinesRequest {}
+
+message ListMachinesResponse {
+  repeated MachineStatus machines = 1;
+}
+
 service VmService {
   rpc Ping(PingRequest) returns (PingResponse);
+  rpc StartTask(StartTaskRequest) returns (StartTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
 }
