@@ -7,10 +7,8 @@ use std::{
 
 use anyhow::{Context, bail};
 use hyper_util::rt::TokioIo;
-use shargon_protocol::{
-    SOCKET_PATH,
-    vm_service::{PingRequest, vm_service_client::VmServiceClient},
-};
+use shargon_protocol::vm_service::{PingRequest, vm_service_client::VmServiceClient};
+use shargon_settings::{DaemonSettings, ShargonSettings};
 use tokio::{net::UnixStream, time::sleep};
 use tonic::{
     Code, Status,
@@ -23,23 +21,6 @@ use std::os::unix::process::CommandExt;
 
 const CONNECTOR_ENDPOINT: &str = "http://[::]:50051";
 
-#[derive(Clone, Debug)]
-struct DaemonBootstrapConfig {
-    socket_path: PathBuf,
-    readiness_timeout: Duration,
-    retry_interval: Duration,
-}
-
-impl Default for DaemonBootstrapConfig {
-    fn default() -> Self {
-        Self {
-            socket_path: PathBuf::from(SOCKET_PATH),
-            readiness_timeout: Duration::from_secs(3),
-            retry_interval: Duration::from_millis(50),
-        }
-    }
-}
-
 enum ProbeDaemonError {
     Unavailable(anyhow::Error),
     Other(anyhow::Error),
@@ -47,7 +28,7 @@ enum ProbeDaemonError {
 
 pub async fn connect_or_start_vm_service() -> anyhow::Result<VmServiceClient<Channel>> {
     let daemon_path = resolve_daemon_executable()?;
-    let config = DaemonBootstrapConfig::default();
+    let config = ShargonSettings::load()?.daemon;
 
     connect_or_start_vm_service_with_launcher(&config, daemon_path.as_path(), || {
         spawn_daemon_process(&daemon_path)
@@ -56,7 +37,7 @@ pub async fn connect_or_start_vm_service() -> anyhow::Result<VmServiceClient<Cha
 }
 
 async fn connect_or_start_vm_service_with_launcher<L>(
-    config: &DaemonBootstrapConfig,
+    config: &DaemonSettings,
     daemon_path: &Path,
     mut spawn_daemon: L,
 ) -> anyhow::Result<VmServiceClient<Channel>>
@@ -76,7 +57,7 @@ where
 }
 
 async fn wait_for_daemon_ready(
-    config: &DaemonBootstrapConfig,
+    config: &DaemonSettings,
     daemon_path: &Path,
 ) -> anyhow::Result<VmServiceClient<Channel>> {
     let deadline = Instant::now() + config.readiness_timeout;
@@ -401,7 +382,7 @@ mod tests {
         runtime.block_on(async {
             let temp_dir = tempdir()?;
             let socket_path = temp_dir.path().join("daemon.sock");
-            let config = DaemonBootstrapConfig {
+            let config = DaemonSettings {
                 socket_path,
                 readiness_timeout: Duration::from_millis(100),
                 retry_interval: Duration::from_millis(10),
@@ -433,8 +414,8 @@ mod tests {
         Ok(())
     }
 
-    fn test_config(socket_path: &Path) -> DaemonBootstrapConfig {
-        DaemonBootstrapConfig {
+    fn test_config(socket_path: &Path) -> DaemonSettings {
+        DaemonSettings {
             socket_path: socket_path.to_path_buf(),
             readiness_timeout: Duration::from_secs(1),
             retry_interval: Duration::from_millis(25),

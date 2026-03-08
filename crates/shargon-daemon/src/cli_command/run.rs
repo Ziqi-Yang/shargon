@@ -5,7 +5,8 @@ use std::{
 };
 
 use anyhow::{Context, bail};
-use shargon_protocol::{SOCKET_PATH, vm_service::vm_service_server::VmServiceServer};
+use shargon_protocol::vm_service::vm_service_server::VmServiceServer;
+use shargon_settings::{DaemonSettings, ShargonSettings};
 use tokio::{
     net::{UnixListener, UnixStream},
     time::sleep,
@@ -27,12 +28,13 @@ impl CliRunCommand {
 
 impl CliCommand for CliRunCommand {
     fn execute(&self) -> anyhow::Result<()> {
+        let config = ShargonSettings::load()?.daemon;
         let rt = tokio::runtime::Runtime::new()?;
         rt.block_on(async {
-            let listener = create_daemon_listener(Path::new(SOCKET_PATH)).await?;
+            let listener = create_daemon_listener(&config).await?;
             let incoming = UnixListenerStream::new(listener);
 
-            tracing::info!("listening on {}", SOCKET_PATH);
+            tracing::info!("listening on {}", config.socket_path.display());
 
             Server::builder()
                 .add_service(VmServiceServer::new(VmServiceImpl {}))
@@ -44,9 +46,9 @@ impl CliCommand for CliRunCommand {
     }
 }
 
-async fn create_daemon_listener(socket_path: &Path) -> anyhow::Result<UnixListener> {
-    prepare_socket_path(socket_path).await?;
-    bind_socket_path(socket_path).await
+async fn create_daemon_listener(config: &DaemonSettings) -> anyhow::Result<UnixListener> {
+    prepare_socket_path(config.socket_path.as_path()).await?;
+    bind_socket_path(config.socket_path.as_path(), config).await
 }
 
 async fn prepare_socket_path(socket_path: &Path) -> anyhow::Result<()> {
@@ -69,16 +71,15 @@ async fn prepare_socket_path(socket_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn bind_socket_path(socket_path: &Path) -> anyhow::Result<UnixListener> {
+async fn bind_socket_path(
+    socket_path: &Path,
+    config: &DaemonSettings,
+) -> anyhow::Result<UnixListener> {
     match UnixListener::bind(socket_path) {
         Ok(listener) => Ok(listener),
         Err(err) if err.kind() == ErrorKind::AddrInUse => {
-            if wait_for_live_socket(
-                socket_path,
-                Duration::from_millis(500),
-                Duration::from_millis(25),
-            )
-            .await?
+            if wait_for_live_socket(socket_path, config.readiness_timeout, config.retry_interval)
+                .await?
             {
                 bail!("daemon already running on {}", socket_path.display());
             }
@@ -144,6 +145,14 @@ mod tests {
 
     use super::*;
 
+    fn test_config(socket_path: &Path) -> DaemonSettings {
+        DaemonSettings {
+            socket_path: socket_path.to_path_buf(),
+            readiness_timeout: Duration::from_secs(1),
+            retry_interval: Duration::from_millis(25),
+        }
+    }
+
     #[test]
     fn create_daemon_listener_removes_stale_socket() -> anyhow::Result<()> {
         let runtime = tokio::runtime::Runtime::new()?;
@@ -155,7 +164,7 @@ mod tests {
             let stale_listener = UnixListener::bind(&socket_path)?;
             drop(stale_listener);
 
-            let listener = create_daemon_listener(&socket_path).await?;
+            let listener = create_daemon_listener(&test_config(&socket_path)).await?;
             assert!(socket_path.exists());
 
             drop(listener);
@@ -173,7 +182,9 @@ mod tests {
             let socket_path = temp_dir.path().join("daemon.sock");
             let live_listener = UnixListener::bind(&socket_path)?;
 
-            let err = create_daemon_listener(&socket_path).await.unwrap_err();
+            let err = create_daemon_listener(&test_config(&socket_path))
+                .await
+                .unwrap_err();
             assert!(format!("{err:#}").contains("already running"));
 
             drop(live_listener);
@@ -191,7 +202,9 @@ mod tests {
             let socket_path = temp_dir.path().join("daemon.sock");
             let live_listener = UnixListener::bind(&socket_path)?;
 
-            let err = bind_socket_path(&socket_path).await.unwrap_err();
+            let err = bind_socket_path(&socket_path, &test_config(&socket_path))
+                .await
+                .unwrap_err();
             assert!(format!("{err:#}").contains("already running"));
 
             drop(live_listener);
